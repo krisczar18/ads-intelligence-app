@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
+// useMemo used for byPerson below
 import { Header } from "@/components/layout/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -78,9 +79,13 @@ export default function PayablesPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/payables?status=${statusFilter}`);
-    const json = await res.json();
+    const [res, openRes] = await Promise.all([
+      fetch(`/api/payables?status=${statusFilter}`),
+      fetch("/api/payables?status=open"),
+    ]);
+    const [json, openJson] = await Promise.all([res.json(), openRes.json()]);
     setPayables(json.payables ?? []);
+    setOpenPayables(openJson.payables ?? []);
     setLoading(false);
   }, [statusFilter]);
 
@@ -111,17 +116,7 @@ export default function PayablesPage() {
     load();
   }
 
-  // Summary: total owed, breakdown by person
-  const allOpen = useMemo(async () => {
-    const res = await fetch("/api/payables?status=open");
-    const json = await res.json();
-    return (json.payables ?? []) as Payable[];
-  }, []);
-
   const [openPayables, setOpenPayables] = useState<Payable[]>([]);
-  useEffect(() => {
-    allOpen.then(setOpenPayables);
-  }, [allOpen]);
 
   const totalOwed = openPayables.reduce((s, p) => s + p.amount, 0);
 
