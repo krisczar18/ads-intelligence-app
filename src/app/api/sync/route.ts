@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { syncAdAccount } from "@/lib/sync";
 import { scoreAdAccount } from "@/lib/scoring";
+import { tagUntaggedAds } from "@/lib/tagging";
 
 async function runSync(adAccountId?: string) {
   const supabase = await createServiceClient();
@@ -41,6 +42,12 @@ async function runSync(adAccountId?: string) {
 
     try {
       const result = await syncAdAccount(supabase, account.id);
+
+      // Auto-tag new ads (fire-and-forget style — errors don't fail the sync)
+      const tagResult = await tagUntaggedAds(supabase, account.id);
+      if (tagResult.errors.length > 0) {
+        result.errors.push(...tagResult.errors.slice(0, 3).map((e) => `[tagging] ${e}`));
+      }
 
       // Run scoring immediately after sync
       const scoreResult = await scoreAdAccount(supabase, account.id);
