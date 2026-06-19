@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { syncAdAccount } from "@/lib/sync";
+import { scoreAdAccount } from "@/lib/scoring";
 
 async function runSync(adAccountId?: string) {
   const supabase = await createServiceClient();
@@ -40,6 +41,12 @@ async function runSync(adAccountId?: string) {
 
     try {
       const result = await syncAdAccount(supabase, account.id);
+
+      // Run scoring immediately after sync
+      const scoreResult = await scoreAdAccount(supabase, account.id);
+      if (scoreResult.errors.length > 0) {
+        result.errors.push(...scoreResult.errors.map((e) => `[scoring] ${e}`));
+      }
 
       // Update sync_log
       if (logId) {
